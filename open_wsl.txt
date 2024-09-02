@@ -1,0 +1,14 @@
+bcdedit /set hypervisorlaunchtype off
+bcdedit /set hypervisorlaunchtype auto
+
+Disable-WindowsOptionalFeature -Online -FeatureName VirtualMachinePlatform
+Enable-WindowsOptionalFeature -Online -FeatureName VirtualMachinePlatform
+
+
+
+
+IP 宏定义
+
+seq确认即可
+
+四次挥手中的发送也要放在handle里面

@@ -1,0 +1,10 @@
+{
+    "files.associations": {
+        "*.l": "code-text-binary",
+        "kernel.h": "c",
+        "unistd.h": "c",
+        "limits": "cpp",
+        "global.h": "c",
+        "trans.h": "c"
+    }
+}
