@@ -250,7 +250,7 @@ int tju_handle_packet(tju_tcp_t* sock, char* pkt){
         break;
 
     case SYN_SENT: // client收到SYN+ACK报文 这里的socket是client_conn_socket
-        if(flags == SYN_FLAG_MASK | ACK_FLAG_MASK){
+        if(flags == (SYN_FLAG_MASK | ACK_FLAG_MASK)){
             printf("客户端SYN_SENT状态下收到SYN+ACK报文, 发送ACK\n");
 
             sock->state = ESTABLISHED;
@@ -305,7 +305,7 @@ int tju_handle_packet(tju_tcp_t* sock, char* pkt){
             sock->state = FIN_WAIT_2;
             log_debug("FIN_WAIT_1状态下收到ACK报文, 状态变为FIN_WAIT_2");
         }
-        else if(flags == FIN_FLAG_MASK | ACK_FLAG_MASK){
+        else if(flags == (FIN_FLAG_MASK | ACK_FLAG_MASK)){
             sock->state = CLOSING;
             sock->window.wnd_recv->expect_seq = seq + 1;
 
@@ -325,7 +325,8 @@ int tju_handle_packet(tju_tcp_t* sock, char* pkt){
         break;
 
     case FIN_WAIT_2:
-        if(flags == FIN_FLAG_MASK){
+        if(flags == (FIN_FLAG_MASK | ACK_FLAG_MASK)){
+            log_debug("FIN_WAIT_2状态下收到FIN|ACK 发送ACK 状态变为TIME_WAIT");
             sock->state = TIME_WAIT;
             sock->window.wnd_recv->expect_seq = seq + 1;
 
@@ -340,7 +341,6 @@ int tju_handle_packet(tju_tcp_t* sock, char* pkt){
             free_packet(pkt);
 
             sock->window.wnd_send->nextseq += 1;
-            log_debug("FIN_WAIT_2状态下收到FIN报文, 状态变为TIME_WAIT");
         }
         break;
 
@@ -355,16 +355,9 @@ int tju_handle_packet(tju_tcp_t* sock, char* pkt){
     case LAST_ACK:
         if(flags == ACK_FLAG_MASK){
             sock->state = CLOSED;
+            log_debug("LAST_ACK状态下收到ACK报文, 状态变为CLOSED");
         }
         break;
-
-    case TIME_WAIT:
-        if(flags == ACK_FLAG_MASK){
-            
-            sock->state = CLOSED;
-
-        }
-
 
     case ESTABLISHED: // 收到数据报文
         if(flags == (FIN_FLAG_MASK | ACK_FLAG_MASK)){ // 收到FIN报文 表示对方要关闭连接 ///////////我累个烧刚啊！！！！！！！！！！！！！！！！！！！！！！加括号
@@ -383,6 +376,7 @@ int tju_handle_packet(tju_tcp_t* sock, char* pkt){
 
             sock->window.wnd_send->nextseq += 1;
             log_debug("ESTABLISHED状态下收到FIN|ACK, 并发送ACK 状态变为CLOSE_WAIT");
+
         }
         else if(flags == NO_FLAG){
 
@@ -461,11 +455,25 @@ int tju_close (tju_tcp_t* sock){
         while(sock->state != TIME_WAIT);
         // 等待2MSL
         sock->state = CLOSED;
-        log_debug("TIME_WAIT状态结束, 进入CLOSED");
+        log_debug("TIME_WAIT状态结束, 进入CLOSED 离开close函数");
         break;
     case CLOSE_WAIT:
+        log_debug("调用close 发送FIN|ACK 进入LAST_ACK");
         sock->state = LAST_ACK;
+
+        tju_packet_t* pkt = create_packet(
+            sock->established_local_addr.port, sock->established_remote_addr.port,
+            sock->window.wnd_send->nextseq, sock->window.wnd_recv->expect_seq,
+            DEFAULT_HEADER_LEN, DEFAULT_HEADER_LEN, 
+            FIN_FLAG_MASK | ACK_FLAG_MASK, 1, 0,
+            NULL, 0);
+        send_packet_wrapper(pkt);
+        free_packet(pkt);
+
+        sock->window.wnd_send->nextseq += 1;
+        
         while(sock->state != CLOSED);
+        log_debug("离开close函数");
         break;
     default:
         break;

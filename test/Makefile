@@ -4,18 +4,15 @@ OBJS = $(BUILD_DIR)/tju_packet.o \
 	   $(BUILD_DIR)/tju_tcp.o \
 	   $(BUILD_DIR)/XQueue.o \
 	   $(BUILD_DIR)/trans.o \
-
-	#    $(BUILD_DIR)/timer.o \
-	#    $(BUILD_DIR)/SKB.o \
-	#    $(BUILD_DIR)/debug.o 
+	   $(BUILD_DIR)/log.o
 
 
 default:all
 
-all: clean test_client test_server rdt_server rdt_client close_client
+all: clean test_client test_server rdt_server rdt_client close_client close_server_for_server
 
 clean:
-	-rm -f test_client test_server rdt_server rdt_client close_client client.log server.log rdt_server.log rdt_client.log
+	-rm -f test_client test_server rdt_server rdt_client close_client client.log server.log rdt_server.log rdt_client.log close_server_for_server
 
 test_client:
 	gcc -pthread -g -ggdb -DDEBUG -I../inc ./test_client.c -o test_client $(OBJS)
@@ -30,3 +27,5 @@ rdt_client:
 
 close_client:
 	gcc -pthread -g -ggdb -DDEBUG -I../inc ./test_close_client.c -o close_client $(OBJS)
+close_server_for_server:
+	gcc -pthread -g -ggdb -DDEBUG -I../inc ./test_close_server_for_server.c -o close_server_for_server $(OBJS)

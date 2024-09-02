@@ -39,7 +39,7 @@ int main(int argc, char **argv) {
     tju_recv(my_socket, (void*)buf, 10);
     printf("client recv %s\n", buf);
 
-    sleep(3);
+    // sleep(1);
     tju_close(my_socket);
     return EXIT_SUCCESS;
 }

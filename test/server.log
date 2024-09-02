@@ -1,8 +1,2 @@
-[服务端] 收到一个TCP数据包
-[服务端] 客户端发送的第一个SYN报文检验通过
-{{GET SYN SCORE}}
-[服务端] 发送SYNACK 等待客户端第三次握手的ACK
-[服务端] 收到一个TCP数据包
-[服务端] 客户端发送的ACK报文检验通过, 成功建立连接
-{{GET ACK SCORE}}
-{{TEST SUCCESS}}
+15:58:11 DEBUG src/tju_tcp.c:454: 调用close 发送FIN|ACK 进入FIN_WAIT_1
+15:58:13 DEBUG src/tju_tcp.c:306: FIN_WAIT_1状态下收到ACK报文, 状态变为FIN_WAIT_2
