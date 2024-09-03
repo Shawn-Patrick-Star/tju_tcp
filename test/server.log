@@ -1,2 +1,18 @@
-15:58:11 DEBUG src/tju_tcp.c:454: 调用close 发送FIN|ACK 进入FIN_WAIT_1
-15:58:13 DEBUG src/tju_tcp.c:306: FIN_WAIT_1状态下收到ACK报文, 状态变为FIN_WAIT_2
+03:45:13 DEBUG src/tju_tcp.c:217: 收到报文, 状态:1, seq:100, ack:0, flags:8, data_len:0
+
+03:45:13 DEBUG src/tju_tcp.c:223: 服务端LISTEN状态下收到SYN报文, 发送SYN+ACK 变为SYN_RECV
+
+03:45:13 DEBUG src/tju_tcp.c:217: 收到报文, 状态:3, seq:101, ack:1, flags:4, data_len:0
+
+03:45:13 DEBUG src/tju_tcp.c:281: 服务端SYN_RECV状态下收到ACK报文, 新建连接, 重新回到LISTEN状态 新建立的sock
+
+03:45:13 DEBUG src/tju_tcp.c:473: 调用close 发送FIN|ACK 进入FIN_WAIT_1
+03:45:15 DEBUG src/tju_tcp.c:217: 收到报文, 状态:5, seq:101, ack:1, flags:2, data_len:0
+
+03:45:15 DEBUG src/tju_tcp.c:325: FIN_WAIT_1状态下收到FIN+ACK 发送ACK 状态变为CLOSING
+03:45:15 DEBUG src/tju_tcp.c:217: 收到报文, 状态:8, seq:102, ack:1, flags:4, data_len:0
+
+03:45:15 DEBUG src/tju_tcp.c:354: CLOSING状态下收到ACK报文, 状态变为TIME_WAIT
+03:45:15 DEBUG src/tju_tcp.c:477: TIME_WAIT状态结束, 进入CLOSED 离开close函数
+[服务端] 测试双方同时断开连接的情况
+STATE TRANSFORM TO CLOSED
