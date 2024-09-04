@@ -6,7 +6,7 @@
 #include <unistd.h>
 #include "tju_tcp.h"
 
-#define MAX_SOCK 32
+#define MAX_SOCK 128
 tju_tcp_t* listen_socks[MAX_SOCK];
 tju_tcp_t* established_socks[MAX_SOCK];
 

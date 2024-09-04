@@ -17,6 +17,10 @@
 #include <arpa/inet.h>
 
 #include "XQueue.h"
+#include "log.h"
+
+#define SERVER_IP "172.17.0.3"
+#define CLIENT_IP "172.17.0.2"
 
 // 单位是byte
 #define SIZE32 4
@@ -124,6 +128,8 @@ typedef struct {
 	// 只有监听socket才会用到这两个队列 所以其实应该单独定义一个监听sock结构体
 	XQueue full_conn_queue;
 	XQueue half_conn_queue;
+
+	pthread_t pid;
 
 } tju_tcp_t;
 

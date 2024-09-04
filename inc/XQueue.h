@@ -18,6 +18,7 @@ typedef struct {
     QueueNode* rear;  // 队列尾部
     size_t size;       // 队列中的元素数量
     pthread_mutex_t mutex; // 队列互斥锁
+    pthread_cond_t notEmpty_cond; // 队列条件变量
 } XQueue;
 
 // 初始化队列
@@ -26,16 +27,12 @@ void initQueue(XQueue* queue);
 // 创建新的队列节点
 QueueNode* createNode(void* data);
 
-bool isEmpty(XQueue* queue);
 
 // 入队操作
 void push(XQueue* queue, void* data);
 
 // 出队操作
 void* pop(XQueue* queue);
-
-// 获取队列头部数据（不删除）
-void* front(XQueue* queue);
 
 // 销毁队列（不释放队列中的数据）
 void destroyQueue(XQueue* queue);

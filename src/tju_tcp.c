@@ -9,6 +9,7 @@
 #define INIT_SERVER_SEQ 0
 
 
+
 /*
 创建 TCP socket 
 初始化对应的结构体
@@ -32,6 +33,8 @@ tju_tcp_t* tju_socket(){
     sock->window.wnd_send = (sender_window_t*)malloc(sizeof(sender_window_t));
     sock->window.wnd_recv = (receiver_window_t*)malloc(sizeof(receiver_window_t));
     
+    pthread_create(&sock->pid, NULL, (void*)sender_thread, sock);
+
     return sock;
 }
 
@@ -100,7 +103,7 @@ int tju_connect(tju_tcp_t* sock, tju_sock_addr target_addr){
     sock->established_remote_addr = target_addr;
 
     tju_sock_addr local_addr;
-    local_addr.ip = inet_network("172.17.0.2");
+    local_addr.ip = inet_network(CLIENT_IP);
     local_addr.port = 5678; // 连接方进行connect连接的时候 内核中是随机分配一个可用的端口
     sock->established_local_addr = local_addr;
 
@@ -122,7 +125,7 @@ int tju_connect(tju_tcp_t* sock, tju_sock_addr target_addr){
     free_packet(pkt);
     sock->state = SYN_SENT;
     sock->window.wnd_send->nextseq += 1; // SYN 报文虽然没有有效载荷 但它仍然被视为一个有效的 TCP 段 序列号需要递增以反映下一个 TCP 段的开始
-    printf("客户端发送了第一次挥手SYN报文\n");
+    log_debug("客户端发送了第一次挥手SYN报文\n");
     // 这里也不能直接建立连接 需要经过三次握手
     // 实际在linux中 connect调用后 会进入一个while循环
     // 循环跳出的条件是socket的状态变为ESTABLISHED 表面看上去就是 正在连接中 阻塞
@@ -132,14 +135,14 @@ int tju_connect(tju_tcp_t* sock, tju_sock_addr target_addr){
     listen_socks[hashval] = NULL;
     hashval = cal_hash(local_addr.ip, local_addr.port, target_addr.ip, target_addr.port);
     established_socks[hashval] = sock;
-    printf("客户端完成了三次握手, 连接建立\n");
+    log_debug("客户端完成了三次握手, 连接建立\n");
 
     return 0;
 }
 
 int tju_send(tju_tcp_t* sock, const void *buffer, int len){
     if(sock->state != ESTABLISHED && sock->state != CLOSE_WAIT){
-        perror("ERROR: socket is not in ESTABLISHED or CLOSE_WAIT state\n");
+        log_error("ERROR: socket is not in ESTABLISHED or CLOSE_WAIT state\n");
         return -1;
     }
 
@@ -162,8 +165,7 @@ int tju_send(tju_tcp_t* sock, const void *buffer, int len){
             DEFAULT_HEADER_LEN, DEFAULT_HEADER_LEN+send_len,
             NO_FLAG, 1, 0,
             data, send_len);
-        send_packet_wrapper(pkt);
-        free_packet(pkt);
+        push(&sock->send_queue, pkt);
         free(data);
         sock->window.wnd_send->nextseq += send_len;
     }
@@ -219,7 +221,7 @@ int tju_handle_packet(tju_tcp_t* sock, char* pkt){
     {
 /*---------------------------------三次握手--------------------------------------------*/
     case LISTEN: // server收到SYN报文 这里的socket是监听socket
-        if(flags == SYN_FLAG_MASK){
+        if(flags == SYN_FLAG_MASK || flags == (SYN_FLAG_MASK | ACK_FLAG_MASK)){
             log_debug("服务端LISTEN状态下收到SYN报文, 发送SYN+ACK 变为SYN_RECV\n");
             // 初始化监听socket的窗口序号
             sock->window.wnd_send->base = INIT_SERVER_SEQ;
@@ -230,7 +232,7 @@ int tju_handle_packet(tju_tcp_t* sock, char* pkt){
 
             // server发送 应答ACK + 请求SYN 
             tju_packet_t* pkt = create_packet(
-                dst_port, src_port, // 本地测试改成sock->established_local_addr.port才能过 真是离谱
+                dst_port, src_port, 
                 sock->window.wnd_send->nextseq, sock->window.wnd_recv->expect_seq, 
                 DEFAULT_HEADER_LEN, DEFAULT_HEADER_LEN, 
                 SYN_FLAG_MASK | ACK_FLAG_MASK, 1, 0,
@@ -242,6 +244,7 @@ int tju_handle_packet(tju_tcp_t* sock, char* pkt){
 
             sock->window.wnd_send->nextseq += 1; 
             sock->state = SYN_RECV;
+
         }   
         else{
             sock->state = CLOSED;
@@ -286,7 +289,7 @@ int tju_handle_packet(tju_tcp_t* sock, char* pkt){
             tju_tcp_t* new_conn = tju_socket(); // 创建新的socket用于通信
             new_conn->state = ESTABLISHED; 
             new_conn->established_local_addr = sock->bind_addr;
-            new_conn->established_remote_addr.ip = inet_network("172.17.0.2");
+            new_conn->established_remote_addr.ip = inet_network(CLIENT_IP);
             new_conn->established_remote_addr.port = src_port;
             new_conn->window.wnd_send->nextseq = sock->window.wnd_send->nextseq; 
             new_conn->window.wnd_recv->expect_seq = seq + 1;
@@ -365,7 +368,6 @@ int tju_handle_packet(tju_tcp_t* sock, char* pkt){
     case ESTABLISHED: // 收到数据报文
         if(flags == (FIN_FLAG_MASK | ACK_FLAG_MASK) || flags == FIN_FLAG_MASK){ // 收到FIN报文 表示对方要关闭连接 ///////////我累个烧刚啊！！！！！！！！！！！！！！！！！！！！！！加括号
             
-            
             sock->window.wnd_recv->expect_seq = seq + 1;
             // 发送 应答ACK 
             tju_packet_t* pkt = create_packet(
@@ -380,21 +382,6 @@ int tju_handle_packet(tju_tcp_t* sock, char* pkt){
             sock->window.wnd_send->nextseq += 1;
             sock->state = CLOSE_WAIT;
             log_debug("ESTABLISHED状态下收到FIN|ACK, 并发送ACK 状态变为CLOSE_WAIT");
-
-
-            log_debug("CLOSE_WAIT状态下发送FIN|ACK 进入LAST_ACK");
-
-            pkt = create_packet(
-                sock->established_local_addr.port, sock->established_remote_addr.port,
-                sock->window.wnd_send->nextseq, sock->window.wnd_recv->expect_seq,
-                DEFAULT_HEADER_LEN, DEFAULT_HEADER_LEN, 
-                FIN_FLAG_MASK | ACK_FLAG_MASK, 1, 0,
-                NULL, 0);
-            send_packet_wrapper(pkt);
-            free_packet(pkt);
-
-            sock->window.wnd_send->nextseq += 1;
-            sock->state = LAST_ACK;
 
         }
         else if(flags == NO_FLAG){
@@ -473,30 +460,36 @@ int tju_close (tju_tcp_t* sock){
         log_debug("调用close 发送FIN|ACK 进入FIN_WAIT_1");
         while(sock->state != TIME_WAIT);
         // 等待2MSL
+        sleep(2);
         sock->state = CLOSED;
         log_debug("TIME_WAIT状态结束, 进入CLOSED 离开close函数");
         break;
     case CLOSE_WAIT:
-        // log_debug("调用close 发送FIN|ACK 进入LAST_ACK");
-        // sock->state = LAST_ACK;
+        {}
+        tju_packet_t* pkt = create_packet(
+            sock->established_local_addr.port, sock->established_remote_addr.port,
+            sock->window.wnd_send->nextseq, sock->window.wnd_recv->expect_seq,
+            DEFAULT_HEADER_LEN, DEFAULT_HEADER_LEN, 
+            FIN_FLAG_MASK | ACK_FLAG_MASK, 1, 0,
+            NULL, 0);
+        send_packet_wrapper(pkt);
+        free_packet(pkt);
 
-        // tju_packet_t* pkt = create_packet(
-        //     sock->established_local_addr.port, sock->established_remote_addr.port,
-        //     sock->window.wnd_send->nextseq, sock->window.wnd_recv->expect_seq,
-        //     DEFAULT_HEADER_LEN, DEFAULT_HEADER_LEN, 
-        //     FIN_FLAG_MASK | ACK_FLAG_MASK, 1, 0,
-        //     NULL, 0);
-        // send_packet_wrapper(pkt);
-        // free_packet(pkt);
-
-        // sock->window.wnd_send->nextseq += 1;
+        sock->window.wnd_send->nextseq += 1;
+        
+        sock->state = LAST_ACK;
+        log_debug("CLOSE_WAIT状态下发送FIN|ACK 进入LAST_ACK");
         
         while(sock->state != CLOSED);
+        sleep(2);
         log_debug("离开close函数");
         break;
     default:
+        log_error("调用close时状态错误, 当前状态%u", sock->state);
         break;
     }
+    
+    pthread_detach(sock->pid); // 直接不管子线程 hhhh
 
     return 0;
 }

@@ -9,7 +9,7 @@ void initQueue(XQueue* queue) {
     queue->rear = NULL;
     queue->size = 0;
     pthread_mutex_init(&queue->mutex, NULL);
-    pthread_cond_init(&queue->isEmpty_cond, NULL);
+    pthread_cond_init(&queue->notEmpty_cond, NULL);
 }
 
 // 创建新的队列节点
@@ -35,16 +35,15 @@ void push(XQueue* queue, void* data) {
     }
     queue->rear = newNode;
     queue->size++;
+    pthread_cond_signal(&queue->notEmpty_cond);
     pthread_mutex_unlock(&queue->mutex);
 }
 
 // 出队操作
 void* pop(XQueue* queue) {
     pthread_mutex_lock(&queue->mutex);
-    if (queue->front == NULL) {
-        fprintf(stderr, "Queue is empty\n");
-        pthread_mutex_unlock(&queue->mutex);
-        return NULL;
+    while(queue->size == 0) {
+        pthread_cond_wait(&queue->notEmpty_cond, &queue->mutex);
     }
     QueueNode* temp = queue->front;
     void* data = temp->data;
@@ -69,6 +68,8 @@ void* front(XQueue* queue) {
 // 销毁队列（不释放队列中的数据）
 void destroyQueue(XQueue* queue) {
     while (pop(queue) != NULL);
+    pthread_mutex_destroy(&queue->mutex);
+    pthread_cond_destroy(&queue->notEmpty_cond);
 }
 
 
