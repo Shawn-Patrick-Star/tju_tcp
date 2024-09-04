@@ -1,3 +1,5 @@
-
-test/
+/test
 handin.zip
+/build
+server
+client

@@ -72,8 +72,8 @@ typedef struct {
 //   uint32_t estmated_rtt;
 //   int ack_cnt;
 //   pthread_mutex_t ack_cnt_lock;
-//   struct timeval send_time;
-//   struct timeval timeout;
+  struct timeval send_time;
+  struct timeval timeout;
 //   uint16_t rwnd; 
 //   int congestion_status;
 //   uint16_t cwnd; 
@@ -111,7 +111,6 @@ typedef struct {
 	tju_sock_addr established_local_addr; // 存放建立连接后 本机的 IP和端口
 	tju_sock_addr established_remote_addr; // 存放建立连接后 连接对方的 IP和端口
 
-	// pthread_mutex_t send_lock; // 发送数据锁
 	
 	XQueue send_queue; // 只有非监听socket才会用到这个队列
 	// char* sending_buf; // 发送数据缓存区
